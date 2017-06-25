@@ -24,15 +24,24 @@ class CVTest(object):
       cv2.rectangle(img, (x, y), (x + w, y + h), BLUE, 2)
       roi_gray = gray[y:y + h, x:x + w]
       roi_color = img[y:y + h, x:x + w]
-      def plot_feature((x, y, w, h), color):
-        cv2.rectangle(roi_color, (x, y), (x + w, y + h), color, 2)
+      def plot_feature(roi, (x, y, w, h), color):
+        cv2.rectangle(roi, (x, y), (x + w, y + h), color, 2)
       for eye in self.eye_cascade.detectMultiScale(roi_gray):
         print "eye =", eye
-        plot_feature(eye, GREEN)
-      for smile in self.smile_cascade.detectMultiScale(roi_gray):
+        plot_feature(roi_color, eye, GREEN)
+      smile_roi_gray = gray[y + 2*h//3:y + h, x:x + w]
+      smile_roi_color = img[y + 2*h//3:y + h, x:x + w]
+      smile = self.smile_filter(
+          self.smile_cascade.detectMultiScale(smile_roi_gray))
+      if smile is not None:
         print "smile = ", smile
-        plot_feature(smile, RED)
+        plot_feature(smile_roi_color, smile, RED)
     cv2.imshow('img', img)
+
+  def smile_filter(self, smiles):
+    if len(smiles) == 0: return None
+    return sorted(smiles, key=lambda s: s[2]*s[3])[-1]
+
 
 def detect_webcam():
   tt = CVTest()
@@ -42,7 +51,7 @@ def detect_webcam():
       _, frame = cap.read()
       tt.detect_and_show(frame)
       key = cv2.waitKey(delay=1000//30)
-      if key == ord('p'): 
+      if key == ord('p'):
         key = cv2.waitKey(0)
       if key == ord('q'):
         break
@@ -54,7 +63,8 @@ def detect_images(paths):
   for img in paths or [DEFAULT_IMG]:
     tt.detect_and_show(cv2.imread(img))
     key = cv2.waitKey(0)
-    if key == ord('q'): break
+    if key == ord('q'):
+      break
 
 if __name__ == "__main__":
   try:
