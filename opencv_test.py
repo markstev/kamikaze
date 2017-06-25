@@ -1,8 +1,5 @@
 #!/usr/bin/env python2
 
-# Instructions on pulling data from a picamera:
-# http://www.pyimagesearch.com/2015/03/30/accessing-the-raspberry-pi-camera-with-opencv-and-python/
-
 import sys
 
 import cv2
@@ -23,14 +20,17 @@ class CVTest(object):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     faces = self.face_cascade.detectMultiScale(gray, 1.3, 5)
     for (x, y, w, h) in faces:
+      print "face =", (x, y, w, h)
       cv2.rectangle(img, (x, y), (x + w, y + h), BLUE, 2)
       roi_gray = gray[y:y + h, x:x + w]
       roi_color = img[y:y + h, x:x + w]
       def plot_feature((x, y, w, h), color):
         cv2.rectangle(roi_color, (x, y), (x + w, y + h), color, 2)
       for eye in self.eye_cascade.detectMultiScale(roi_gray):
+        print "eye =", eye
         plot_feature(eye, GREEN)
       for smile in self.smile_cascade.detectMultiScale(roi_gray):
+        print "smile = ", smile
         plot_feature(smile, RED)
     cv2.imshow('img', img)
 
@@ -42,7 +42,10 @@ def detect_webcam():
       _, frame = cap.read()
       tt.detect_and_show(frame)
       key = cv2.waitKey(delay=1000//30)
-      if key == ord('q'): break
+      if key == ord('p'): 
+        key = cv2.waitKey(0)
+      if key == ord('q'):
+        break
   finally:
     cap.release()
 
