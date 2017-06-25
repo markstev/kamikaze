@@ -18,3 +18,7 @@ function generate-vec {
   $OPENCV_BIN/opencv_createsamples -info "${ANNOTATION_FILE}" \
     -w 24 -h 24 -num 1000 -show -vec "${VEC_FILE}"
 }
+
+for cmd in "$@"; do
+  $cmd
+done
