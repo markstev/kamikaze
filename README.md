@@ -1,7 +1,7 @@
 
 ## Setup instructions
 
-1. `sudo apt install python-opencv`
+1. `sudo apt install python-opencv python-pip`
 2. `sudo pip install python-gflags six`
 
 
