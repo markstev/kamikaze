@@ -1,7 +1,5 @@
 #!/usr/bin/env python2
 
-import sys
-
 import cv2
 import gflags
 
@@ -16,8 +14,8 @@ TEAL = (255, 255, 0)
 YELLOW = (0, 255, 255)
 WHITE = (255, 255, 255)
 
-TARGET_POS = (320, 240)
-TARGET_RANGE = (5, 5)
+TARGET_POS = (310, 230)
+TARGET_RANGE = (20, 20)
 
 LEFT = 'left'
 RIGHT = 'right'
@@ -109,7 +107,7 @@ class Recognizer(object):
   def mouth_center(mouth):
     return mouth[0] + mouth[2]//2, mouth[1] + mouth[3]//2
 
-  def do_action(action):
+  def do_action(self, action):
     """action is one of the LEFT, RIGHT, UP, DOWN constants."""
     if action is LEFT:
       pass
@@ -144,7 +142,7 @@ def detect_images(paths):
     if key == ord('q'):
       break
 
-if __name__ == "__main__":
+def main():
   from sys import argv
   argv = FLAGS(argv)
   if not FLAGS.preview:
@@ -156,3 +154,6 @@ if __name__ == "__main__":
       detect_images(argv[1:])
   finally:
     cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+  main()
