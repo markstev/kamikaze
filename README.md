@@ -1,13 +1,14 @@
 
 ## Setup instructions
 
-1. `sudo apt install python-opencv python-pip`
-2. `sudo pip install python-gflags six`
-
+```bash
+sudo apt install python-opencv python-pip
+sudo pip install python-gflags six
+```
 
 ## Run
 
-./main.py --webcam=0 --preview
+`./main.py`
 
 * type `q` while the preview window is focused to exit.
 * by default, recognition will be done on webcam input. Run recognition on images by passing them as command line arguments.
