@@ -3,6 +3,11 @@
 import sys
 
 import cv2
+import gflags
+
+gflags.DEFINE_bool('preview', True, 'Enable preview window')
+gflags.DEFINE_integer('webcam', 0, 'Capture device number to use')
+FLAGS = gflags.FLAGS
 
 BLUE = (255, 0, 0)
 GREEN = (0, 255, 0)
@@ -11,7 +16,6 @@ TEAL = (255, 255, 0)
 YELLOW = (0, 255, 255)
 WHITE = (255, 255, 255)
 
-DEFAULT_IMG = '/home/sagarm/Pictures/Webcam/2017-06-17-153909.jpg'
 TARGET_POS = (320, 240)
 TARGET_RANGE = (5, 5)
 
@@ -70,21 +74,24 @@ class Recognizer(object):
                  smile[3])
       else:
         smile = self.guess_mouth_location(face)
-      action = self.determine_action(self.mouth_center(smile))
-      cv2.putText(img, action, (0, 100), cv2.FONT_HERSHEY_PLAIN, 4, WHITE)
+      actions = self.determine_action(self.mouth_center(smile))
+      cv2.putText(img, ' '.join(actions),
+                  (0, 100), cv2.FONT_HERSHEY_PLAIN, 4, WHITE)
+      for action in actions:
+        self.do_action(action)
     cv2.imshow('img', img)
 
   @staticmethod
   def determine_action(mouth_center):
-    action = ""
+    action = ()
     if mouth_center[0] < TARGET_POS[0]:
-      action += LEFT
+      action += (LEFT,)
     elif mouth_center[0] > TARGET_POS[0] + TARGET_RANGE[0]:
-      action += RIGHT
+      action += (RIGHT,)
     if mouth_center[1] < TARGET_POS[1]:
-      action += UP
+      action += (UP,)
     elif mouth_center[1] > TARGET_POS[1] + TARGET_RANGE[1]:
-      action += DOWN
+      action += (DOWN,)
     return action
 
 
@@ -102,10 +109,21 @@ class Recognizer(object):
   def mouth_center(mouth):
     return mouth[0] + mouth[2]//2, mouth[1] + mouth[3]//2
 
+  def do_action(action):
+    """action is one of the LEFT, RIGHT, UP, DOWN constants."""
+    if action is LEFT:
+      pass
+    elif action is RIGHT:
+      pass
+    elif action is UP:
+      pass
+    elif action is DOWN:
+      pass
+
 def detect_webcam():
   tt = Recognizer()
   try:
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(FLAGS.webcam)
     while True:
       _, frame = cap.read()
       tt.detect_and_show(frame)
@@ -119,7 +137,7 @@ def detect_webcam():
 
 def detect_images(paths):
   tt = Recognizer()
-  for img in paths or [DEFAULT_IMG]:
+  for img in paths:
     print '==', img
     tt.detect_and_show(cv2.imread(img))
     key = cv2.waitKey(0)
@@ -127,11 +145,14 @@ def detect_images(paths):
       break
 
 if __name__ == "__main__":
-  monkeypatch_nopreview()
+  from sys import argv
+  argv = FLAGS(argv)
+  if not FLAGS.preview:
+    monkeypatch_nopreview()
   try:
-    if len(sys.argv) == 1:
+    if len(argv) == 1:
       detect_webcam()
     else:
-      detect_images(sys.argv[1:])
+      detect_images(argv[1:])
   finally:
     cv2.destroyAllWindows()
