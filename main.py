@@ -9,15 +9,23 @@ GREEN = (0, 255, 0)
 RED = (0, 0, 255)
 TEAL = (255, 255, 0)
 YELLOW = (0, 255, 255)
+WHITE = (255, 255, 255)
+
 DEFAULT_IMG = '/home/sagarm/Pictures/Webcam/2017-06-17-153909.jpg'
-TARGET_POS = (100, 100)
-TARGET_RANGE = (5,5)
+TARGET_POS = (320, 240)
+TARGET_RANGE = (5, 5)
+
+LEFT = 'left'
+RIGHT = 'right'
+UP = 'up'
+DOWN = 'down'
 
 DETECT_EYES = False
 MAX_FACES = 1
 
 def monkeypatch_nopreview():
-  def do_nothing(*args, **kwargs): pass
+  def do_nothing(*_args, **_kwargs):
+    pass
   cv2.rectangle = do_nothing
   cv2.imshow = do_nothing
   cv2.waitKey = do_nothing
@@ -30,10 +38,16 @@ class Recognizer(object):
     self.face_cascade = cv2.CascadeClassifier(
         'haarcascades/haarcascade_frontalface_default.xml')
     self.eye_cascade = cv2.CascadeClassifier('haarcascades/haarcascade_eye.xml')
-    self.smile_cascade = cv2.CascadeClassifier('haarcascades/haarcascade_smile.xml')
+    self.smile_cascade = cv2.CascadeClassifier(
+        'haarcascades/haarcascade_smile.xml')
 
-  def plot_feature(self, img, (x, y, w, h), color):
+  @staticmethod
+  def plot_feature(img, (x, y, w, h), color):
     cv2.rectangle(img, (x, y), (x + w, y + h), color, 2)
+
+  @staticmethod
+  def subset_array(array, (x, y, w, h)):
+    return array[y:y + h, x:x + w]
 
   def detect_and_show(self, img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -43,25 +57,50 @@ class Recognizer(object):
       self.plot_feature(img, face, BLUE)
       self.plot_feature(img, self.guess_mouth_location(face), YELLOW)
       x, y, w, h = face
-      roi_gray = gray[y:y + h, x:x + w]
-      roi_color = img[y:y + h, x:x + w]
       for eye in (
-          self.eye_cascade.detectMultiScale(roi_gray) if DETECT_EYES else []):
-        self.plot_feature(roi_color, eye, GREEN)
-      smile_roi_gray = gray[y + 2*h//3:y + h, x:x + w]
-      smile_roi_color = img[y + 2*h//3:y + h, x:x + w]
-      smile = self.smile_filter(
-          self.smile_cascade.detectMultiScale(smile_roi_gray))
+          self.eye_cascade.detectMultiScale(self.subset_array(gray, face))
+          if DETECT_EYES else []):
+        self.plot_feature(self.subset_array(img, face), eye, GREEN)
+      smile_roi = (x, y + 2*h//3, w, h//3)
+      smile = self.smile_filter(self.smile_cascade.detectMultiScale(
+          self.subset_array(gray, smile_roi)))
       if smile is not None:
-        self.plot_feature(smile_roi_color, smile, RED)
+        self.plot_feature(self.subset_array(img, smile_roi), smile, RED)
+        smile = (smile[0] + smile_roi[0], smile[1] + smile_roi[1], smile[2],
+                 smile[3])
+      else:
+        smile = self.guess_mouth_location(face)
+      action = self.determine_action(self.mouth_center(smile))
+      cv2.putText(img, action, (0, 100), cv2.FONT_HERSHEY_PLAIN, 4, WHITE)
     cv2.imshow('img', img)
 
-  def smile_filter(self, smiles):
-    if len(smiles) == 0: return None
+  @staticmethod
+  def determine_action(mouth_center):
+    action = ""
+    if mouth_center[0] < TARGET_POS[0]:
+      action += LEFT
+    elif mouth_center[0] > TARGET_POS[0] + TARGET_RANGE[0]:
+      action += RIGHT
+    if mouth_center[1] < TARGET_POS[1]:
+      action += UP
+    elif mouth_center[1] > TARGET_POS[1] + TARGET_RANGE[1]:
+      action += DOWN
+    return action
+
+
+  @staticmethod
+  def smile_filter(smiles):
+    if len(smiles) == 0:
+      return None
     return sorted(smiles, key=lambda s: s[2]*s[3])[-1]
 
-  def guess_mouth_location(self, (x, y, w, h)):
-    return (x + w//4, y + 4 * h//6, w//2, h//6)
+  @staticmethod
+  def guess_mouth_location((x, y, w, h)):
+    return (x + w//4, y + 9 * h//12, w//2, h//6)
+
+  @staticmethod
+  def mouth_center(mouth):
+    return mouth[0] + mouth[2]//2, mouth[1] + mouth[3]//2
 
 def detect_webcam():
   tt = Recognizer()
