@@ -280,9 +280,7 @@ void DetectWebcam(Recognizer *recognizer) {
     for (int key = 0; key != 'q';) {
       {
         std::unique_lock<std::mutex> lock(mu);
-        if (!latest_image_ready) {
-          latest_image_cv.wait(lock, [&] { return latest_image_ready; });
-        }
+        latest_image_cv.wait(lock, [&] { return latest_image_ready; });
         image = latest_image;
         latest_image_ready = false;
       }
