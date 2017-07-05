@@ -1,5 +1,8 @@
 #!/usr/bin/env python2
 
+import threading
+import Queue
+
 import cv2
 import gflags
 
@@ -120,18 +123,40 @@ class Recognizer(object):
 
 def detect_webcam():
   tt = Recognizer()
-  try:
-    cap = cv2.VideoCapture(FLAGS.webcam)
+  q = Queue.Queue(maxsize=1000)
+  done = [False]
+  def read_images():
+    try:
+      cap = cv2.VideoCapture(FLAGS.webcam)
+      while not done[0]:
+        _, frame = cap.read()
+        try:
+          q.put_nowait(frame)
+        except Queue.Full:
+          pass
+    finally:
+      cap.release()
+  def process_images():
     while True:
-      _, frame = cap.read()
-      tt.detect_and_show(frame)
+      latest = q.get()
+      while True:
+        try:
+          latest = q.get_nowait()
+        except Queue.Empty:
+          break
+      tt.detect_and_show(latest)
       key = cv2.waitKey(delay=1000//30)
       if key == ord('p'):
         key = cv2.waitKey(0)
       if key == ord('q'):
         break
-  finally:
-    cap.release()
+    done[0] = True
+  read_thread = threading.Thread(target=read_images)
+  process_thread = threading.Thread(target=process_images)
+  read_thread.start()
+  process_thread.start()
+  read_thread.join()
+  process_thread.join()
 
 def detect_images(paths):
   tt = Recognizer()
