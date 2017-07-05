@@ -5,8 +5,12 @@
 #include <iostream>
 #include <mutex>
 #include <thread>
+#include <vector>
 
-#include <opencv2/gpu/gpu.hpp>
+//#define USE_CUDA 1
+#ifdef USE_CUDA
+#include <opencv2/cudaobjdetect.hpp>
+#endif
 #include <opencv2/opencv.hpp>
 
 constexpr char kFaceCascadeFile[] =
@@ -14,15 +18,9 @@ constexpr char kFaceCascadeFile[] =
 constexpr char kEyeCascadeFile[] = "../haarcascades/haarcascade_eye.xml";
 constexpr char kMouthCascadeFile[] = "../haarcascades/haarcascade_smile.xml";
 static constexpr int kWebcam = 0;
+static const cv::Size kMinFaceSize(20, 20);
 
-//#define USE_GPU 1
 #define FIND_EYES 0
-
-#ifdef USE_GPU
-using CascadeClassifier = cv::gpu::CascadeClassifier_GPU;
-#else
-using CascadeClassifier = cv::CascadeClassifier;
-#endif
 
 static const cv::Scalar kBlue(255, 0, 0);
 static const cv::Scalar kGreen(0, 255, 0);
@@ -79,47 +77,23 @@ public:
   void operator()(Action) final {}
 };
 
-template <typename T> struct Iter {
-  T &t;
-
-  using iter = typename T::const_iterator;
-  iter begin() { return t.begin(); }
-  iter end() { return t.end(); }
-};
-
-template <> struct Iter<cv::gpu::GpuMat> {
-  cv::gpu::GpuMat &m;
-  int i = 0;
-
-  using iter = Iter<cv::gpu::GpuMat>;
-  iter begin() { return iter{m, 0}; }
-  iter end() { return iter{m, m.rows}; }
-  bool operator==(const Iter &other) const { return i == other.i; }
-  iter &operator++() {
-    ++i;
-    return *this;
-  }
-  iter operator++(int) {
-    ++i;
-    return iter{m, i - 1};
-  }
-};
-
 class Recognizer {
 public:
-#ifdef USE_GPU
-  using Mat = cv::gpu::GpuMat;
+#ifdef USE_CUDA
+  using Mat = cv::cuda::GpuMat;
 #else
   using Mat = cv::Mat;
 #endif
 
   Recognizer(Robot *robot) : robot_(robot) {
-    ASSERT(face_detector_.load(kFaceCascadeFile)) << " error loading "
+#ifndef USE_CUDA
+    ASSERT(face_detector_->load(kFaceCascadeFile)) << " error loading "
                                                   << kFaceCascadeFile;
-    ASSERT(eye_detector_.load(kEyeCascadeFile)) << " error loading "
+    ASSERT(eye_detector_->load(kEyeCascadeFile)) << " error loading "
                                                 << kEyeCascadeFile;
-    ASSERT(mouth_detector_.load(kMouthCascadeFile)) << " error loading "
+    ASSERT(mouth_detector_->load(kMouthCascadeFile)) << " error loading "
                                                     << kMouthCascadeFile;
+#endif
   }
 
   static void PlotFeature(cv::Mat &mat, const cv::Rect &feature,
@@ -148,8 +122,8 @@ public:
   static std::vector<Action> DetermineAction(cv::Mat &input_img,
                                              const cv::Point &mouth) {
     constexpr int kTargetSize = 20;
-    const cv::Rect target(cv::Point((input_img.rows - kTargetSize) / 2,
-                                    (input_img.cols - kTargetSize) / 2),
+    const cv::Rect target(cv::Point((input_img.cols - kTargetSize) / 2,
+                                    (input_img.rows - kTargetSize) / 2),
                           cv::Size(kTargetSize, kTargetSize));
     PlotFeature(input_img, target, kTeal);
     std::vector<Action> actions;
@@ -164,23 +138,31 @@ public:
     return actions;
   }
 
-  std::vector<cv::Rect> DetectMultiScale(CascadeClassifier *cc, const Mat &mat,
+#ifdef USE_CUDA
+  std::vector<cv::Rect> DetectMultiScale(cv::cuda::CascadeClassifier *cc,
+                                         const cv::cuda::GpuMat &mat,
                                          double scale_factor = 1.3,
-                                         int min_neighbors = 3) {
+                                         int min_neighbors = 3,
+                                         cv::Size min_size = {0, 0}) {
     std::vector<cv::Rect> rects;
-#ifdef USE_GPU
-    cv::gpu::GpuMat found;
-    int detect_num =
-        cc->detectMultiScale(mat, found, scale_factor, min_neighbors);
-    cv::Mat local;
-    found.colRange(0, detect_num).download(local);
-    cv::Rect *rect = local.ptr<cv::Rect>();
-    for (int i = 0; i < detect_num; ++i) {
-      rects.emplace_back(rect[i]);
-    }
-#else
-    cc->detectMultiScale(mat, rects, scale_factor, min_neighbors);
+    cv::cuda::GpuMat found;
+    cc->setScaleFactor(scale_factor);
+    cc->setMinNeighbors(min_neighbors);
+    cc->setMinObjectSize(min_size);
+    cc->detectMultiScale(mat, found);
+    cc->convert(found, rects);
+    return rects;
+  }
 #endif
+
+  std::vector<cv::Rect> DetectMultiScale(cv::CascadeClassifier *cc,
+                                         const cv::Mat &mat,
+                                         double scale_factor = 1.3,
+                                         int min_neighbors = 3,
+                                         cv::Size min_size = {0, 0}) {
+    std::vector<cv::Rect> rects;
+    cc->detectMultiScale(mat, rects, scale_factor, min_neighbors, /*flags=*/0,
+                         /*minSize=*/min_size);
     return rects;
   }
 
@@ -190,11 +172,13 @@ public:
     // gray_ = gray;
     auto start_time = std::chrono::high_resolution_clock::now();
     std::ostringstream action_str;
-    for (auto &face : DetectMultiScale(&face_detector_, gray_, 1.3, 5)) {
+    for (auto &face :
+         DetectMultiScale(face_detector_.get(), gray_, 1.3, 5, kMinFaceSize)) {
       PlotFeature(input_img, face, kBlue);
       PlotFeature(input_img, GuessMouthLocation(face), kYellow);
       if (FIND_EYES) {
-        for (cv::Rect &eye : DetectMultiScale(&eye_detector_, gray_(face))) {
+        for (cv::Rect &eye :
+             DetectMultiScale(eye_detector_.get(), gray_(face))) {
           eye += face.tl();
           PlotFeature(input_img, eye, kGreen);
         }
@@ -202,7 +186,7 @@ public:
       const cv::Rect mouth_roi(cv::Point(face.x, face.y + 2 * face.height / 3),
                                cv::Size(face.width, face.height / 3));
       std::vector<cv::Rect> mouths =
-          DetectMultiScale(&mouth_detector_, gray_(mouth_roi));
+          DetectMultiScale(mouth_detector_.get(), gray_(mouth_roi));
       for (cv::Rect &mouth : mouths) { // Convert mouths to img space.
         mouth += mouth_roi.tl();
         PlotFeature(input_img, mouth, kRed);
@@ -232,9 +216,21 @@ private:
   Mat img_;
   Mat gray_;
   Robot *robot_;
-  CascadeClassifier face_detector_;
-  CascadeClassifier eye_detector_;
-  CascadeClassifier mouth_detector_;
+#ifdef USE_CUDA
+  cv::Ptr<cv::cuda::CascadeClassifier> face_detector_ =
+      cv::cuda::CascadeClassifier::create(kFaceCascadeFile);
+  cv::Ptr<cv::cuda::CascadeClassifier> eye_detector_ =
+      cv::cuda::CascadeClassifier::create(kEyeCascadeFile);
+  cv::Ptr<cv::cuda::CascadeClassifier> mouth_detector_ =
+      cv::cuda::CascadeClassifier::create(kMouthCascadeFile);
+#else
+  std::unique_ptr<cv::CascadeClassifier> face_detector_{
+      new cv::CascadeClassifier};
+  std::unique_ptr<cv::CascadeClassifier> eye_detector_{
+      new cv::CascadeClassifier};
+  std::unique_ptr<cv::CascadeClassifier> mouth_detector_{
+      new cv::CascadeClassifier};
+#endif
 };
 
 void DetectImages(Recognizer *recognizer, int argc, char **argv) {
