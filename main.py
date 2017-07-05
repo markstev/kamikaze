@@ -1,6 +1,7 @@
 #!/usr/bin/env python2
 
 import threading
+import time
 import Queue
 
 import cv2
@@ -55,6 +56,7 @@ class Recognizer(object):
     return array[y:y + h, x:x + w]
 
   def detect_and_show(self, img):
+    start_time = time.clock()
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     self.plot_feature(img, TARGET_POS + TARGET_RANGE, TEAL)
     faces = self.face_cascade.detectMultiScale(gray, 1.3, 5)
@@ -77,9 +79,11 @@ class Recognizer(object):
         smile = self.guess_mouth_location(face)
       actions = self.determine_action(self.mouth_center(smile))
       cv2.putText(img, ' '.join(actions),
-                  (0, 100), cv2.FONT_HERSHEY_PLAIN, 4, WHITE)
+                  (0, 40), cv2.FONT_HERSHEY_PLAIN, 2, WHITE)
       for action in actions:
         self.do_action(action)
+    cv2.putText(img, '%.2f fps' % (1 / (time.clock() - start_time)),
+                (0, 20), cv2.FONT_HERSHEY_PLAIN, 1, WHITE)
     cv2.imshow('img', img)
 
   @staticmethod
