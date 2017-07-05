@@ -1,11 +1,19 @@
 #!/usr/bin/env python2
 
+import imp
 import threading
 import time
 import Queue
 
-import cv2
+try:
+  CV2_FILENAME = '/home/sagarm/code/opencv/install-tree/lib/python2.7/dist-packages/'
+  cv2 = imp.load_module('cv2', *imp.find_module('cv2', [CV2_FILENAME]))
+except:
+  print 'failed to load cv2 from ', CV2_FILENAME
+  import cv2
 import gflags
+
+print "cv2 =", cv2.__file__
 
 gflags.DEFINE_bool('preview', True, 'Enable preview window')
 gflags.DEFINE_integer('webcam', 0, 'Capture device number to use')
