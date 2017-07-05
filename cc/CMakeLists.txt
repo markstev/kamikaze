@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 project( kamikaze )
-find_package( OpenCV REQUIRED )
+find_package( OpenCV 2.4 REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 add_executable( kamikaze main.cc )
 target_link_libraries( kamikaze ${OpenCV_LIBS} -lpthread )
