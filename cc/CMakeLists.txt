@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 2.8)
+project( kamikaze )
+find_package( OpenCV REQUIRED )
+include_directories( ${OpenCV_INCLUDE_DIRS} )
+add_executable( kamikaze main.cc )
+target_link_libraries( kamikaze ${OpenCV_LIBS} -lpthread )
+target_compile_features( kamikaze PRIVATE cxx_constexpr cxx_decltype_auto )
+find_package( Threads )
