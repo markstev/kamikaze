@@ -26,6 +26,7 @@ RIGHT = 'right'
 UP = 'up'
 DOWN = 'down'
 
+MIN_FACE_SIZE = (20, 20)
 DETECT_EYES = False
 MAX_FACES = 1
 
@@ -59,7 +60,7 @@ class Recognizer(object):
     start_time = time.clock()
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     self.plot_feature(img, TARGET_POS + TARGET_RANGE, TEAL)
-    faces = self.face_cascade.detectMultiScale(gray, 1.3, 5)
+    faces = self.face_cascade.detectMultiScale(gray, 1.3, 5, minSize=MIN_FACE_SIZE)
     for face in faces[:MAX_FACES]:
       self.plot_feature(img, face, BLUE)
       self.plot_feature(img, self.guess_mouth_location(face), YELLOW)
