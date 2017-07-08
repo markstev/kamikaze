@@ -2,6 +2,14 @@ Requires opencv built with in a specific location -- edit CMakeLists.txt with
 the absolute path.
 
 ```bash
+sudo apt install \
+  cmake git \
+  build-essential pkg-config \
+  qt4-default libgtk2.0-dev \
+  libavcodec-dev libavformat-dev libswscale-dev \
+  python-dev python-numpy \
+  libtbb2 libtbb-dev \
+  libjpeg-dev libpng-dev libtiff-dev libjasper-dev libdc1394-22-dev
 git clone https://github.com/opencv/opencv.git
 cd opencv
 mkdir build
