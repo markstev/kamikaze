@@ -1,0 +1,3 @@
+[submodule "arduinoio"]
+	path = arduinoio
+	url = https://github.com/markstev/arduinoio
