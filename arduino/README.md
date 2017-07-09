@@ -1,6 +1,7 @@
 ## Instructions
 
 ```
+sudo apt install arduino-core
 git submodule init # from the parent directory
 git submodule update
 mkdir arduino/build
