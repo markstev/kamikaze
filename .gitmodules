@@ -1,3 +1,6 @@
 [submodule "arduinoio"]
 	path = arduinoio
 	url = https://github.com/markstev/arduinoio
+[submodule "arduino/arduino-cmake"]
+	path = arduino/arduino-cmake
+	url = https://github.com/queezythegreat/arduino-cmake.git
