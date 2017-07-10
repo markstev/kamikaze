@@ -7,7 +7,6 @@ import Queue
 
 from robot import FakeRobot, Robot
 
-
 try:
   CV2_FILENAME = '/home/sagarm/code/opencv/install-tree/lib/python2.7/dist-packages/'
   cv2 = imp.load_module('cv2', *imp.find_module('cv2', [CV2_FILENAME]))
@@ -43,6 +42,7 @@ LEFT = 'left'
 RIGHT = 'right'
 UP = 'up'
 DOWN = 'down'
+CALIBRATE = 'calibrate'
 
 MIN_FACE_SIZE = (20, 20)
 DETECT_EYES = False
@@ -66,6 +66,7 @@ class Recognizer(object):
     self.smile_cascade = cv2.CascadeClassifier(
         'haarcascades/haarcascade_smile.xml')
     self.robot = robot
+    self.last_action_time = time.time()
 
   @staticmethod
   def plot_feature(img, (x, y, w, h), color):
@@ -119,6 +120,8 @@ class Recognizer(object):
     cv2.imshow('img', img)
     for action in actions:
       self.do_action(*action)
+    if time.time() - self.last_action_time > 30:
+      self.do_action(CALIBRATE, 0)
 
   @staticmethod
   def determine_action(mouth_center):
@@ -162,6 +165,9 @@ class Recognizer(object):
       self.robot.up(steps)
     elif dir is DOWN:
       self.robot.down(steps)
+    elif dir is CALIBRATE:
+      self.robot.calibrate()
+    self.last_action_time = time.time()
 
 def detect_webcam(recognizer):
   q = Queue.Queue(maxsize=1000)
@@ -169,6 +175,8 @@ def detect_webcam(recognizer):
   def read_images():
     try:
       cap = cv2.VideoCapture(FLAGS.webcam)
+      if not cap.isOpened():
+        raise RuntimeError("Failed to open camera")
       while not done[0]:
         _, frame = cap.read()
         try:
@@ -185,7 +193,11 @@ def detect_webcam(recognizer):
           latest = q.get_nowait()
         except Queue.Empty:
           break
-      recognizer.detect_and_show(latest)
+      try:
+        recognizer.detect_and_show(latest)
+      except cv2.error:
+        # Sometimes, cvtcolor fails.
+        continue
       key = cv2.waitKey(delay=1000//30)
       if key == ord('p'):
         key = cv2.waitKey(0)
@@ -193,11 +205,13 @@ def detect_webcam(recognizer):
         break
     done[0] = True
   read_thread = threading.Thread(target=read_images)
-  process_thread = threading.Thread(target=process_images)
   read_thread.start()
-  process_thread.start()
+  while True:
+    process_images()
+  #process_thread = threading.Thread(target=process_images)
+  #process_thread.start()
   read_thread.join()
-  process_thread.join()
+  #process_thread.join()
 
 def detect_images(paths, recognizer):
   for img in paths:

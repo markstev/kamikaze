@@ -18,17 +18,50 @@ UD_TRIGGER_NEG = 7
 FINAL_WAIT = 4000
 MAX_WAIT = 4000
 
-# UNCONNECTED
-UC_TRIGGER_POS = 12  # Should not be in use
-UC_STEPPER_DONE = 8  # Unused
-UC_ICE_PIN = 7  # Unused
+UNCONNECTED_1 = 8
+UNCONNECTED_2 = 9
+UNCONNECTED_3 = 12
 UC_ICE_STEPS = 6  # Unused
+
+UP_DIR = 0
+LEFT_DIR = 1
+
+FINAL_WAIT = 4000
+MAX_WAIT = 4000
+
+class Motor(object):
+  def __init__(self, uno, dir_pin, step_pin, trigger_neg, trigger_pos, home_dir, home_offset):
+    self.uno = uno
+    self.dir_pin = dir_pin
+    self.step_pin = step_pin
+    self.trigger_neg = trigger_neg
+    self.trigger_pos = trigger_pos
+    self.home_dir = home_dir
+    self.home_offset = home_offset
+
+  def Move(self, forward, steps):
+    self.uno.Move(stepper_dir_pin=self.dir_pin,
+                  stepper_pulse_pin=self.step_pin,
+                  negative_trigger_pin=self.trigger_neg,
+                  positive_trigger_pin=self.trigger_pos,
+                  done_pin=UNCONNECTED_1,
+                  forward=forward,
+                  steps=steps,
+                  final_wait=FINAL_WAIT,
+                  max_wait=MAX_WAIT,
+                  temp_pin=UNCONNECTED_2,
+                  temp_pin_threshold=UC_ICE_STEPS)
+
+  def Calibrate(self):
+    self.Move(self.home_dir, 1500)
+    self.Move(not self.home_dir, self.home_offset)
 
 class FakeRobot(object):
   def left(self, *args): pass
   def right(self, *args): pass
   def up(self, *args): pass
   def down(self, *args): pass
+  def calibrate(self): pass
 
 class Robot(object):
   def __init__(self, port="ttyACM0"):
@@ -36,47 +69,39 @@ class Robot(object):
     time.sleep(2)
     self.uno.Blink(13, 0.3)
 
+    self.horizontal_motor = Motor(
+        self.uno,
+        dir_pin=3,
+        step_pin=2,
+        trigger_pos=6,
+        trigger_neg=UNCONNECTED_3,
+        home_dir=1,
+        home_offset=500)
+    self.vertical_motor = Motor(
+        self.uno,
+        dir_pin=4,
+        step_pin=5,
+        trigger_pos=UNCONNECTED_3,
+        trigger_neg=7,
+        home_dir=0,
+        home_offset=200)
+    self.calibrate()
+
+  def calibrate(self):
+    for motor in [self.horizontal_motor, self.vertical_motor]:
+      motor.Calibrate()
+
   def left(self, steps):
-    return self.__left_right(False, steps)
+    self.horizontal_motor.Move(LEFT_DIR, steps)
 
   def right(self, steps):
-    return self.__left_right(True, steps)
-
-  def __left_right(self, right, steps):
-    return self.move(
-        dir_pin=LR_DIR_PIN,
-        pulse_pin=LR_PULSE_PIN,
-        trigger_pin=LR_TRIGGER_NEG,
-        forward=right,
-        steps=steps)
+    self.horizontal_motor.Move(not LEFT_DIR, steps)
 
   def up(self, steps): #pylint: disable=invalid-name
-    return self.__up_down(True, steps)
+    self.vertical_motor.Move(UP_DIR, steps)
 
   def down(self, steps):
-    return self.__up_down(False, steps)
-
-  def __up_down(self, up, steps): #pylint: disable=invalid-name
-    return
-    return self.move(
-        dir_pin=UD_DIR_PIN,
-        pulse_pin=UD_PULSE_PIN,
-        trigger_pin=UD_TRIGGER_NEG,
-        forward=up,
-        steps=steps)
-
-  def move(self, dir_pin, pulse_pin, trigger_pin, forward, steps):
-    self.uno.Move(stepper_dir_pin=dir_pin,
-                  stepper_pulse_pin=pulse_pin,
-                  negative_trigger_pin=trigger_pin,
-                  positive_trigger_pin=UC_TRIGGER_POS,
-                  done_pin=UC_STEPPER_DONE,
-                  forward=forward,
-                  steps=steps,
-                  final_wait=FINAL_WAIT,
-                  max_wait=MAX_WAIT,  # MIN_WAIT on Arduino is currently 10k.
-                  temp_pin=0,
-                  temp_pin_threshold=0)
+    self.vertical_motor.Move(not UP_DIR, steps)
 
 
 if __name__ == "__main__":
