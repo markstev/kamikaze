@@ -87,7 +87,7 @@ class MotorModule : public arduinoio::UCModule {
     return true;
   }
 
-  template typename<T>
+  template <typename T>
   bool Update(const T &new_value, T* old_value) {
     const bool changed = new_value != *old_value;
     *old_value = new_value;
