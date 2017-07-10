@@ -15,7 +15,6 @@ const double SPEED_UP_FACTOR = 0.996;
 const double SLOW_DOWN_FACTOR = 1.004;
 const int SLOW_DOWN_INCREMENT = 100;
 const double SLOW_DOWN_FACTOR_INCREMENT = 1.49063488565;
-const int MIN_WAIT = 20000;
 
 class MotorModule : public arduinoio::UCModule {
  public:
@@ -66,7 +65,7 @@ class MotorModule : public arduinoio::UCModule {
       // on a pull-up -> not triggered
       if (digitalRead(relevant_trigger_pin) == HIGH) {
         timed_callback_ = new arduinoio::TimedCallback<MotorModule>(
-            true, max(current_wait_, MIN_WAIT), this, &MotorModule::StepMotor);
+            true, current_wait_, this, &MotorModule::StepMotor);
         return;
       }
     }
@@ -88,6 +87,13 @@ class MotorModule : public arduinoio::UCModule {
     return true;
   }
 
+  template typename<T>
+  bool Update(const T &new_value, T* old_value) {
+    const bool changed = new_value != *old_value;
+    *old_value = new_value;
+    return changed;
+  }
+
   virtual bool AcceptMessage(const arduinoio::Message &message) {
     int length;
     const char* command = (const char*) message.command(&length);
@@ -101,10 +107,13 @@ class MotorModule : public arduinoio::UCModule {
       // steps (int32)
       // max_frequency (int32) = 1 / min_wait_
       char dir_pin = command[MOVE_LENGTH];
-      pulse_pin_ = command[MOVE_LENGTH + 1];
-      trigger_negative_pin_ = command[MOVE_LENGTH + 2];
-      trigger_positive_pin_ = command[MOVE_LENGTH + 3];
-      done_pin_ = command[MOVE_LENGTH + 4];
+      bool changed = Update(command[MOVE_LENGTH + 1], &pulse_pin_);
+      changed |= Update(command[MOVE_LENGTH + 2], &trigger_negative_pin_);
+      changed |= Update(command[MOVE_LENGTH + 3], &trigger_positive_pin_);
+      changed |= Update(command[MOVE_LENGTH + 4], &done_pin_);
+      if (changed) {
+        initialized_ = false;
+      }
       moving_positive_ = command[MOVE_LENGTH + 5] != 0x00;
       if (command[MOVE_LENGTH + 6] > 5) {
         max_wait_ = 8000;
@@ -131,7 +140,7 @@ class MotorModule : public arduinoio::UCModule {
       digitalWrite(done_pin_, LOW);
       digitalWrite(dir_pin, moving_positive_ ? HIGH : LOW);
       current_wait_ = max_wait_;
-      timed_callback_ = new arduinoio::TimedCallback<MotorModule>(true, max(current_wait_, MIN_WAIT),
+      timed_callback_ = new arduinoio::TimedCallback<MotorModule>(true, current_wait_,
           this,
           &MotorModule::StepMotor);
       while (!send_done_) {
