@@ -10,6 +10,7 @@
 #include "../arduinoio/lib/arduinoio.h"
 #include "blink_module.h"
 #include "motor_module.h"
+#include "uc_io_module.h"
 
 const int SERIAL_RX_PIN = 0;
 const int SERIAL_TX_PIN = 1;
@@ -39,6 +40,7 @@ void setup() {
   arduino_io.Add(new arduinoio::SerialRXModule(NULL, 0));
   arduino_io.Add(new nebree8::BlinkModule());
   arduino_io.Add(new nebree8::MotorModule());
+  arduino_io.Add(new nebree8::UCIOModule());
 }
 
 int mode = HIGH;
