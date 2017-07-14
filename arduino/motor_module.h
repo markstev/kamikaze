@@ -22,7 +22,7 @@ class MotorModule : public arduinoio::UCModule {
     pulse_state_ = false;
     initialized_ = false;
     timed_callback_ = NULL;
-    max_wait_ = 8000;
+    max_wait_ = 4000;
     send_done_ = false;
 
     const int kLocalAddress = 0;
@@ -116,9 +116,9 @@ class MotorModule : public arduinoio::UCModule {
       }
       moving_positive_ = command[MOVE_LENGTH + 5] != 0x00;
       if (command[MOVE_LENGTH + 6] > 5) {
-        max_wait_ = 8000;
+        max_wait_ = 4000;
       } else {
-        max_wait_ = 8000;
+        max_wait_ = 4000;
       }
       send_done_ = false;
       temp_pin_ = command[MOVE_LENGTH + 7];
